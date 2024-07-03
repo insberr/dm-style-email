@@ -23,6 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-google-api-key
-google-client-secret.json
-bun.lockb
+src/google-api-key
+src/google-client-secret.json
