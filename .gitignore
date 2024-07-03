@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+google-api-key
+google-client-secret.json
+bun.lockb
