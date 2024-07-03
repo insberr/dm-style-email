@@ -1,0 +1,24 @@
+{
+  "name": "untitled",
+  "private": true,
+  "version": "0.0.1",
+  "main": "build/electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@google-cloud/local-auth": "^3.0.1",
+    "@react-oauth/google": "^0.12.1",
+    "axios": "^1.6.8",
+    "googleapis": "^134.0.0",
+    "preact": "^10.19.6"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.8.2",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.7"
+  }
+}
