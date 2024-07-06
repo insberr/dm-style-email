@@ -1,4 +1,45 @@
 
+export interface MessagePart {
+    partId: string;
+    mimeType: string;
+    filename: string;
+    headers: {
+        name: string;
+        value: string;
+    }[];
+    body: {
+        size: number;
+        data: string;
+    }
+}
+export interface MessagePayload {
+    partId: string;
+    mimeType: string;
+    filename: string;
+    headers: {
+        name: string;
+        value: string;
+    }[];
+    body: {
+        size: number;
+    } | MessagePart;
+    parts: MessagePart[] | undefined;
+}
+
+export interface Message {
+    id: string;
+    threadId: string;
+    labelIds: string[];
+    snippet: string;
+    payload: MessagePayload; // todo
+    sizeEstimate: number,
+    historyId: string,
+    internalDate: string
+}
+
+
+
+
 const tokenClient = (window as any).tokenClient;
 const gapi = (window as any).gapi;
 const google = (window as any).google;
