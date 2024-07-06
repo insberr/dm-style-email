@@ -1,7 +1,7 @@
 import {useGoogleLogin} from '@react-oauth/google';
 import axios from 'axios';
 import {useState} from "preact/compat";
-import {Container, Box, Button, Card, CardContent, Grid} from "@mui/material";
+import {Box, Button, Card, CardContent, Grid} from "@mui/material";
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
@@ -9,7 +9,7 @@ import Stack from '@mui/material/Stack';
 import {createTheme, ThemeProvider} from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import AutoResizeIframe from "./AutoResizeIframe.tsx";
-import {Message} from "./googleAPI.ts";
+import {Message, MessagePart} from "./googleAPI.ts";
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
@@ -186,7 +186,7 @@ export function App() {
                                     return <Card key={message.id}>
                                         <CardContent>
                                             <AutoResizeIframe
-                                                src={message.payload.body.data.replace(/-/g, '+').replace(/_/g, '/')}/>
+                                                src={(message.payload.body as MessagePart).body.data.replace(/-/g, '+').replace(/_/g, '/')}/>
                                         </CardContent>
                                     </Card>
                                 }
