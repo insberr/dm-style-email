@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "main": "build/electron/main.js",
   "type": "module",
+  "packageManager": "yarn@3.6.3",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
