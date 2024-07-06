@@ -13,7 +13,9 @@ export default function AutoResizeIframe(props: { src: string }) {
     useEffect(() => {
         const iframe = iframeRef.current;
         if (iframe) {
-            const iframeDocument = iframe.contentDocument || iframe.contentWindow?.document;
+            iframe.style.height = "100px";
+
+            let iframeDocument = iframe.contentDocument || iframe.contentWindow?.document;
             if (iframeDocument) {
                 const decodedHtml = base64ToUtf8(props.src);
 
@@ -23,11 +25,11 @@ export default function AutoResizeIframe(props: { src: string }) {
 
                 setTimeout(() => {
                     let height = iframeDocument.body.scrollHeight;
-                    const offset = iframeDocument.body.offsetHeight;
-                    height = Math.max(height, offset);
+                    // const offset = iframeDocument.body.offsetHeight;
+                    // height = Math.min(height, offset);
 
-                    iframe.style.height = (height + 40).toString() + "px";
-                }, 2000);
+                    iframe.style.height = (height + 20).toString() + "px";
+                }, 500);
             }
         }
     }, [props.src]);
@@ -36,7 +38,7 @@ export default function AutoResizeIframe(props: { src: string }) {
         <iframe
             ref={iframeRef}
             // scrolling="no"
-            style={{ width: '100%', height: '500px', border: 'none', overflow: 'hidden' }}
+            style={{ width: '100%', height: '100px', border: 'none', overflow: 'hidden' }}
             title="Render HTML"
         />
     );
