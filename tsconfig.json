@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES6",
     "useDefineForClassFields": true,
-    "module": "ESNext",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "commonjs",
+    "lib": ["es6", "dom", "DOM.Iterable"],
     "skipLibCheck": true,
     "paths": {
       "react": ["./node_modules/preact/compat/"],
@@ -11,7 +11,7 @@
     },
     "esModuleInterop":  true,
     /* Bundler mode */
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,

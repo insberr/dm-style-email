@@ -25,3 +25,8 @@ dist-ssr
 
 google-client-secret.json
 google-api-key
+.env
+/client_secret_485936092108-b4kvdfo5b5ttm1mp79hvc8smn73efda7.apps.googleusercontent.com.json
+/src/out-2.json
+/src/out.json
+/index_old.html
