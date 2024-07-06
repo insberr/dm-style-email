@@ -1,9 +1,8 @@
 import {useGoogleLogin} from '@react-oauth/google';
 import axios from 'axios';
 import {useState} from "preact/compat";
-import {Box, Button, Card, CardContent, Container, Grid} from "@mui/material";
+import {Container, Box, Button, Card, CardContent, Grid} from "@mui/material";
 import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
@@ -15,6 +14,9 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import {useEffect} from 'preact/hooks';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+
 
 const darkTheme = createTheme({
     palette: {
@@ -132,25 +134,35 @@ export function App() {
     return (
         <ThemeProvider theme={darkTheme}>
             <CssBaseline/>
-            <Container>
-                <Button variant="contained" onClick={() => googleLogin()}>
-                    Sign in with Google 🚀 (Re-sync the last top 100 emails)
-                </Button>
+                <Box sx={{ flexGrow: 1 }}>
+                    <AppBar position="static">
+                        <Toolbar>
+                            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                                Direct Message Style Email
+                            </Typography>
+                            <Button variant="contained" onClick={() => googleLogin()}>
+                                Sign in with Google (Re-sync the last top 100 emails)
+                            </Button>
+                        </Toolbar>
+                    </AppBar>
+                </Box>
                 <Grid container spacing={2}>
-                    <Grid item xs={4} sx={{ maxHeight: '100vh' }}>
-                        <List sx={{ maxHeight: '100%', overflowX: 'auto' }}>
-                            {messagesBySender && Object.entries(messagesBySender).map(([sender, messages], index: number) => {
-                                return <ListItemButton key={index} selected={selectedSenderIndex === index} onClick={() => {
-                                    setSelectedSenderIndex(index);
-                                    setMessagesToShow(messages);
-                                }}>
-                                    <ListItemText primary={sender.replace(/ <.+>/g, '')} secondary={sender.match(/<.+>/g)} />
-                                    {messages.length}
-                                </ListItemButton>
-                            })}
-                        </List>
+                    <Grid item sm={4}>
+                        <Box>
+                            <List>
+                                {messagesBySender && Object.entries(messagesBySender).map(([sender, messages], index: number) => {
+                                    return <ListItemButton key={index} selected={selectedSenderIndex === index} onClick={() => {
+                                        setSelectedSenderIndex(index);
+                                        setMessagesToShow(messages);
+                                    }}>
+                                        <ListItemText primary={sender.replace(/ <.+>/g, '')} secondary={sender.match(/<.+>/g)} />
+                                        {messages.length}
+                                    </ListItemButton>
+                                })}
+                            </List>
+                        </Box>
                     </Grid>
-                    <Grid item xs={8} sx={{ maxHeight: '100vh', overflowX: 'auto' }}>
+                    <Grid item sm={8}>
                         <Stack spacing={2}>
                             {messagesToShow && messagesToShow.map((message: Message, index: number) => {
                                 if (message.payload.parts === undefined) {
@@ -216,7 +228,6 @@ export function App() {
                         </Stack>
                     </Grid>
                 </Grid>
-            </Container>
         </ThemeProvider>
     )
 }

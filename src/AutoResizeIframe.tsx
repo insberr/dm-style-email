@@ -9,6 +9,7 @@ const base64ToUtf8 = (base64: string) => {
 
 export default function AutoResizeIframe(props: { src: string }) {
     const iframeRef = useRef<HTMLIFrameElement>(null);
+    // const divRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const iframe = iframeRef.current;
@@ -22,6 +23,15 @@ export default function AutoResizeIframe(props: { src: string }) {
                 iframeDocument.open();
                 iframeDocument.write(decodedHtml);
                 iframeDocument.close();
+
+                // Render Raw
+                // const div = divRef.current;
+                // if (div) {
+                //     div.innerHTML = iframeDocument.body.innerHTML;
+                //     iframeDocument.open();
+                //     iframeDocument.write("");
+                //     iframeDocument.close();
+                // }
 
                 setTimeout(() => {
                     let height = iframeDocument.body.scrollHeight;
@@ -38,7 +48,12 @@ export default function AutoResizeIframe(props: { src: string }) {
         <iframe
             ref={iframeRef}
             // scrolling="no"
-            style={{ width: '100%', height: '100px', border: 'none', overflow: 'hidden' }}
+            style={{
+                width: '100%',
+                height: '100px',
+                border: 'none',
+                backgroundColor: 'white',
+            }}
             title="Render HTML"
         />
     );
