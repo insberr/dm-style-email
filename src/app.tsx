@@ -1,22 +1,27 @@
 import {useGoogleLogin} from '@react-oauth/google';
 import axios from 'axios';
-import {useState} from "preact/compat";
-import {Box, Button, Card, CardContent, Grid} from "@mui/material";
+import {useMemo, useState} from "preact/compat";
+import {Badge, Box, Button, Grid} from "@mui/material";
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
-import Stack from '@mui/material/Stack';
 import {createTheme, ThemeProvider} from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import AutoResizeIframe from "./AutoResizeIframe.tsx";
-import {Message, MessagePart} from "./googleAPI.ts";
+import {getEmailMessage, listEmailMessages, Message} from "./googleAPI.ts";
 import Typography from '@mui/material/Typography';
-import Divider from '@mui/material/Divider';
-import Chip from '@mui/material/Chip';
-import {useEffect} from 'preact/hooks';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
+import MessageList from "./components/MessageList.tsx";
+import {addMessages, deleteAllMessages, getAllMessages} from './indexedDBManager.ts'
+import {markReadYesYesYes} from "./components/MessageCard.tsx";
 
+export interface SenderSummary {
+    fullSenderString: string;
+    sender: string;
+    names: string[],
+    unreadCount: number;
+    messageIds: string[];
+}
 
 const darkTheme = createTheme({
     palette: {
@@ -25,28 +30,132 @@ const darkTheme = createTheme({
 });
 
 export function App() {
-    const [messages, setMessages] = useState<Message[] | null>(JSON.parse(localStorage.getItem('messagesData') || "null"));
-    const [messagesToShow, setMessagesToShow] = useState<Message[] | null>(null);
-    const [messagesBySender, setMessagesBySender] = useState<Record<string, Message[]> | null>(null);
+    // const [messages, setMessages] = useState<Message[] | null>(null);
+    // const [messagesToShow, setMessagesToShow] = useState<string[] | null>(null);
+    // const [messagesBySender, setMessagesBySender] = useState<Record<string, SenderSummary> | null>(null);
     const [selectedSenderIndex, setSelectedSenderIndex] = useState<number>(0);
+    const [syncing, setSyncing] = useState<boolean>(false);
+    const [nextBatch, setNextBatch] = useState<string | null>(localStorage.getItem('nextPage'));
+    const [token, setToken] = useState<string | null>(localStorage.getItem('access_token'));
+    const [senders, setSenders] = useState<SenderSummary[]>([]);
+
+    // FIXME: Probably store this information in the database so we dont have to compute it here
+    useMemo(() => {
+        console.log("Initializing messages by sender");
+
+        getAllMessages().then(allMessages => {
+            let messagesBySenderTemp: Record<string, SenderSummary> = {};
+
+            for (let message_1 of allMessages) {
+                const sender = message_1.payload.headers
+                    .filter(header => header.name === 'From')[0]?.value || null;
+
+                if (!sender) {
+                    console.log("No sender found for " + message_1.id);
+                    continue;
+                }
+
+                let senderName = sender.replace(/ <.+>/g, '');
+                let senderAddresses = sender.match(/<.+>/g);
+
+                // If there is no name on the account, then the address becomes the name so this swaps them
+                if (!senderAddresses || senderAddresses.length === 0) {
+                    senderAddresses = [senderName];
+                }
+
+                if (senderAddresses.length > 1) {
+                    console.warn("There should not be multiple sender addresses: ", message_1.id);
+                }
+
+                const senderAddress = senderAddresses[0];
+
+                if (!messagesBySenderTemp[senderAddress]) messagesBySenderTemp[senderAddress] = {
+                    fullSenderString: sender,
+                    sender: senderAddress,
+                    names: [],
+                    unreadCount: 0,
+                    messageIds: []
+                };
+
+                if (message_1.labelIds.includes("UNREAD")) {
+                    messagesBySenderTemp[senderAddress].unreadCount++;
+                }
+
+                if (!messagesBySenderTemp[senderAddress].names.includes(senderName)) {
+                    messagesBySenderTemp[senderAddress].names.push(senderName);
+                }
+
+                messagesBySenderTemp[senderAddress].messageIds.push(message_1.id);
+            }
+
+            console.log("Messages by sender: ", messagesBySenderTemp);
+            // setMessagesBySender(messagesBySenderTemp);
+            // setMessagesToShow(Object.values(messagesBySenderTemp)[0].messageIds);
+
+            const done = Object.values(messagesBySenderTemp)
+                .sort((aSender, bSender) => {
+                    const aUnreads = aSender.unreadCount;
+                    const bUnreads = bSender.unreadCount;
+                    return bUnreads - aUnreads;
+                });
+
+            // setSelectedSenderIndex(done[0].sender);
+
+            setSenders(done);
+        });
+    }, [nextBatch]);
 
     const googleLogin = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
             console.log(tokenResponse);
-            // const userInfo = await axios.get(
-            //     'https://www.googleapis.com/oauth2/v3/userinfo',
-            //     { headers: { Authorization: 'Bearer <tokenResponse.access_token>' } },
-            // );
-            //
-            // console.log(userInfo);
-            const messages = await listEmailMessages(tokenResponse.access_token);
 
-            console.log(messages);
+            localStorage.setItem('access_token', tokenResponse.access_token);
+            setToken(tokenResponse.access_token);
 
-            let messagesData: Message[] = [];
+            const userInfo = await axios.get(
+                'https://www.googleapis.com/oauth2/v3/userinfo',
+                { headers: { Authorization: `Bearer ${tokenResponse.access_token}` } },
+            );
+            console.log(userInfo);
+        },
+        onError: errorResponse => console.log(errorResponse),
+        scope: 'https://mail.google.com'
+    });
 
-            for (let message of messages.data.messages) {
-                const msg = await getEmailMessage(tokenResponse.access_token, message.id);
+    async function syncEmails() {
+        if (!token) {
+            console.error("No token");
+            return;
+        }
+
+        if (!nextBatch) {
+            deleteAllMessages().catch(error => console.log(error));
+            setSenders([]);
+        }
+
+        const messages: { id: string; threadId: string; }[] = [];
+        const response = await listEmailMessages(token, 'me', nextBatch);
+        messages.push(...response.data.messages);
+
+        // FIXME: Make it so if the message id is already in the database that we dont re-request for it
+        //      But still re-sync existing values once in a while
+
+        console.log(messages);
+
+        let messagesData: Message[] = [];
+
+        setSyncing(true);
+
+        const chunkedMessages = [];
+        for (let i = 0; i < messages.length; i += 10) {
+            chunkedMessages.push(messages.slice(i, i + 10));
+        }
+
+        for (let chunkedMessage of chunkedMessages) {
+            await Promise.all(chunkedMessage.map(async message => {
+                console.debug("Getting message ", message.id);
+
+                const msg = await getEmailMessage(token, 'me', message.id);
 
                 const msgToPush: Message = {
                     id: msg.data.id,
@@ -60,174 +169,97 @@ export function App() {
                 };
 
                 messagesData.push(msgToPush);
-            }
-
-            console.log(messagesData);
-            setMessages(messagesData);
-            localStorage.setItem('access_token', tokenResponse.access_token);
-            localStorage.setItem('messagesData', JSON.stringify(messagesData));
-        },
-        onError: errorResponse => console.log(errorResponse),
-        scope: 'https://mail.google.com'
-    });
-
-    const userId = 'me';
-    const listEmailMessages = async (access_token: string) => {
-        // GET https://gmail.googleapis.com/gmail/v1/users/{userId}/messages
-        return await axios.get(`https://gmail.googleapis.com/gmail/v1/users/${userId}/messages`, {
-            headers: {
-                Authorization: `Bearer ${access_token}`,
-                Accept: 'application/json'
-            }
-        })
-            .then(messages => {
-                return messages;
-            })
-    }
-
-    const getEmailMessage = async (access_token: string, id: string) => {
-        // GET https://gmail.googleapis.com/gmail/v1/users/{userId}/messages/{id}
-        return await axios.get(`https://gmail.googleapis.com/gmail/v1/users/${userId}/messages/${id}`, {
-            headers: {
-                Authorization: `Bearer ${access_token}`,
-                Accept: 'application/json'
-            }
-        })
-            .then(message => {
-                return message;
-            })
-    }
-
-    // let seen: Record<string, number> = {};
-    // messages.map((msg: any) => {
-    //     const labels: string[] = msg.data.labelIds || [];
-    //     for (const label of labels) {
-    //         if (seen[label] === undefined) {
-    //             seen[label] = 0;
-    //         }
-    //         seen[label]++;
-    //     }
-    // })
-    // console.log(seen);
-
-    useEffect(() => {
-        let messagesBySenderTemp: Record<string, Message[]> = {};
-        for (let message of messages || []) {
-            const sender = message.payload.headers
-                .filter(header => header.name === 'From')[0]?.value || null;
-            if (!sender) {
-                console.log("No sender found for " + message.id);
-                continue;
-            }
-            if (!messagesBySenderTemp[sender]) messagesBySenderTemp[sender] = [];
-
-            messagesBySenderTemp[sender].push(message);
+            })).catch(error => console.log(error));
         }
 
-        console.log(messagesBySenderTemp);
+        setSyncing(false);
 
-        setMessagesBySender(messagesBySenderTemp);
+        // console.log(messagesData);
+        // setMessages(messagesData);
 
-        setMessagesToShow(Object.values(messagesBySenderTemp)[0]);
-    }, [messages]);
+        if (response.data.nextPageToken === undefined || response.data.nextPageToken === null) {
+            setNextBatch(null);
+            localStorage.removeItem('nextPage');
+        } else {
+            setNextBatch(response.data.nextPageToken);
+            localStorage.setItem('nextPage', response.data.nextPageToken);
+        }
+
+        // try {
+        //     localStorage.setItem('messagesData', JSON.stringify(messagesData));
+        // } catch (error) {
+        //     console.error(error);
+        // }
+
+        await addMessages(messagesData).catch(error => console.log(error));
+    }
 
     return (
         <ThemeProvider theme={darkTheme}>
             <CssBaseline/>
-                <Box sx={{ flexGrow: 1 }}>
-                    <AppBar position="static">
-                        <Toolbar>
-                            <Typography variant="h6" sx={{ flexGrow: 1 }}>
-                                Direct Message Style Email
-                            </Typography>
-                            <Button variant="contained" onClick={() => googleLogin()}>
-                                Sign in with Google (Re-sync the last top 100 emails)
-                            </Button>
-                        </Toolbar>
-                    </AppBar>
-                </Box>
-                <Grid container spacing={2}>
-                    <Grid item sm={4}>
-                        <Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+                <AppBar position="static">
+                    <Toolbar>
+                        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                            Direct Message Style Email
+                        </Typography>
+                        {syncing && <Typography>
+                            Syncing Emails...
+                        </Typography>}
+                        <Button onClick={() => {
+                            if (token) markReadYesYesYes(token);
+                        }}>Save</Button>
+                        <Button variant="contained" onClick={() => syncEmails()}>
+                            Sync next 200
+                        </Button>
+                        <Button variant="contained" onClick={() => googleLogin()}>
+                            Sign in with Google
+                        </Button>
+                    </Toolbar>
+                </AppBar>
+                <Grid container sx={{ flexGrow: 1, overflow: 'hidden' }}>
+                    <Grid item
+                          xs={12}
+                          md={3}
+                          sx={{
+                              borderRight: '1px solid #333',
+                              overflowY: 'auto',
+                              height: '100vh',
+                              paddingBottom: '100px'
+                          }}>
                             <List>
-                                {messagesBySender && Object.entries(messagesBySender).map(([sender, messages], index: number) => {
-                                    return <ListItemButton key={index} selected={selectedSenderIndex === index} onClick={() => {
-                                        setSelectedSenderIndex(index);
-                                        setMessagesToShow(messages);
-                                    }}>
-                                        <ListItemText primary={sender.replace(/ <.+>/g, '')} secondary={sender.match(/<.+>/g)} />
-                                        {messages.length}
-                                    </ListItemButton>
-                                })}
+                                {senders
+                                    .map((sender, index: number) => {
+                                        return <ListItemButton
+                                            key={`sender-button-${index}`}
+                                            selected={selectedSenderIndex === index}
+                                            onClick={() => {
+                                                setSelectedSenderIndex(index);
+                                                // setMessagesToShow(sender.messageIds);
+                                            }}>
+
+                                                <ListItemText primary={sender.names.join(', ')} secondary={sender.sender} />
+                                            <Badge badgeContent={sender.unreadCount } color="primary" />
+                                        </ListItemButton>
+                                    })
+                                }
                             </List>
-                        </Box>
                     </Grid>
-                    <Grid item sm={8}>
-                        <Stack spacing={2}>
-                            {messagesToShow && messagesToShow.map((message: Message, index: number) => {
-                                if (message.payload.parts === undefined) {
-                                    if (message.payload.body === undefined) {
-                                        console.log("No parts???: ", message)
-                                        return <Card mt={3} key={index}>
-                                            <Box sx={{p: '10px'}}>
-                                                {message.labelIds.includes('UNREAD') ?
-                                                    <Chip label='Unread'/> :
-                                                    <Chip variant="outlined" label='Read'/>
-                                                }
-
-                                                <div>No parts for msg: {message.id}</div>
-                                            </Box>
-                                            <Divider/>
-                                            <CardContent>
-                                                Unable to render content: {JSON.stringify(message.payload, null, 2)}
-                                            </CardContent>
-                                        </Card>;
-                                    }
-                                    return <Card key={message.id}>
-                                        <CardContent>
-                                            <AutoResizeIframe
-                                                src={(message.payload.body as MessagePart).body.data.replace(/-/g, '+').replace(/_/g, '/')}/>
-                                        </CardContent>
-                                    </Card>
-                                }
-
-                                const msgHTML = message.payload.parts
-                                    .filter((part: any) => part.mimeType === "text/html");
-
-                                if (msgHTML.length === 0) {
-                                    return <Card mt={3} key={index}>
-                                        <Box sx={{p: '10px'}}>
-                                            {message.labelIds.includes('UNREAD') ?
-                                                <Chip label='Unread'/> :
-                                                <Chip variant="outlined" label='Read'/>
-                                            }
-
-                                            <div>No parts with html for msg: {message.id}</div>
-                                        </Box>
-                                        <Divider/>
-                                        <CardContent>
-                                            Unable to render content: {JSON.stringify(message.payload, null, 2)}
-                                        </CardContent>
-                                    </Card>;
-                                }
-
-                                return <Card mt={3} key={index}>
-                                    <Box sx={{ p: '10px' }}>
-                                        {message.labelIds.includes('UNREAD') ?
-                                            <Chip label='Unread'/> :
-                                            <Chip variant="outlined" label='Read'/>
-                                        }
-                                    </Box>
-                                    <Divider/>
-                                    <CardContent>
-                                        <AutoResizeIframe
-                                            src={msgHTML[0].body.data.replace(/-/g, '+').replace(/_/g, '/')}/>
-                                    </CardContent>
-                                </Card>
-                            })}
-                        </Stack>
+                    <Grid item
+                          xs={12}
+                          md={9}
+                          sx={{
+                              overflowY: 'auto',
+                              height: '100vh',
+                              padding: 2,
+                              paddingBottom: '100px'
+                          }}>
+                        <MessageList messageIds={
+                            senders[selectedSenderIndex]?.messageIds || null
+                        } />
                     </Grid>
                 </Grid>
+            </Box>
         </ThemeProvider>
     )
 }

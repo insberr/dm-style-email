@@ -31,3 +31,5 @@ google-api-key
 /src/out.json
 /index_old.html
 /.yarn/cache/
+/src/messages.json
+/src/grr.json

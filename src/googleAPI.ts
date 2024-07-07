@@ -1,3 +1,13 @@
+import axios from 'axios';
+
+const unreadOnly = true;
+
+
+export interface MessageIdList {
+    messages: { id: string; threadId: string; }[];
+    nextPageToken: string;
+    resultSizeEstimate: number;
+}
 
 export interface MessagePart {
     partId: string;
@@ -12,6 +22,7 @@ export interface MessagePart {
         data: string;
     }
 }
+
 export interface MessagePayload {
     partId: string;
     mimeType: string;
@@ -22,7 +33,10 @@ export interface MessagePayload {
     }[];
     body: {
         size: number;
-    } | MessagePart;
+    } | {
+        size: number;
+        data: string;
+    };
     parts: MessagePart[] | undefined;
 }
 
@@ -39,46 +53,67 @@ export interface Message {
 
 
 
+export async function listEmailMessages(access_token: string, userId: string, nextBatch?: string | null): Promise<{ data: MessageIdList }> {
+    // GET https://gmail.googleapis.com/gmail/v1/users/{userId}/messages
 
-const tokenClient = (window as any).tokenClient;
-const gapi = (window as any).gapi;
-const google = (window as any).google;
-
-/**
- *  Sign in the user upon button click.
- */
-export function googleAuthenticate() {
-    tokenClient.callback = async (resp: any) => {
-        if (resp.error !== undefined) {
-            throw (resp);
-        }
-
-        console.log('Successfully authenticated user: ');
-        console.log(resp);
-
-        // save login
-        localStorage.setItem('token', resp.token);
-
-        // todo await listLabels();
-    };
-
-    if (gapi.client.getToken() === null) {
-        // Prompt the user to select a Google Account and ask for consent to share their data
-        // when establishing a new session.
-        tokenClient.requestAccessToken({prompt: 'consent'});
-    } else {
-        // Skip display of account chooser and consent dialog for an existing session.
-        tokenClient.requestAccessToken({prompt: ''});
-    }
+    return await axios.get(
+        `https://gmail.googleapis.com/gmail/v1/users/${userId}/messages?maxResults=200${unreadOnly ? '&q=is%3Aunread' : ''}${nextBatch ? '&pageToken=' + nextBatch : ''}`,
+        {
+            headers: {
+                Authorization: `Bearer ${access_token}`,
+                Accept: 'application/json'
+            }
+        })
+        .then(messages => {
+            return messages as { data: MessageIdList };
+        })
 }
 
-/**
- *  Sign out the user upon button click.
- */
-export function logout() {
-    const token = gapi.client.getToken();
-    if (token !== null) {
-        google.accounts.oauth2.revoke(token.access_token);
-        gapi.client.setToken('');
-    }
+export async function getEmailMessage(access_token: string, userId: string, id: string): Promise<{ data: Message }> {
+    // GET https://gmail.googleapis.com/gmail/v1/users/{userId}/messages/{id}
+    return await axios.get(`https://gmail.googleapis.com/gmail/v1/users/${userId}/messages/${id}`, {
+        headers: {
+            Authorization: `Bearer ${access_token}`,
+            Accept: 'application/json'
+        }
+    })
+        .then(message => {
+            return message as { data: Message };
+        })
+}
+
+export async function markMessagesAsRead(access_token: string, userId: string, messageIdList: string[]) {
+    // POST https://gmail.googleapis.com/gmail/v1/users/{userId}/messages/batchModify
+    await axios.post(
+        `https://gmail.googleapis.com/gmail/v1/users/${userId}/messages/batchModify`,
+    {
+            "ids": messageIdList,
+            "addLabelIds": [],
+            "removeLabelIds": ["UNREAD"]
+        },
+        {
+            headers: {
+                Authorization: `Bearer ${access_token}`,
+                Accept: 'application/json'
+            },
+        }
+    )
+}
+
+export async function markMessagesAsUnRead(access_token: string, userId: string, messageIdList: string[]) {
+    // POST https://gmail.googleapis.com/gmail/v1/users/{userId}/messages/batchModify
+    await axios.post(
+        `https://gmail.googleapis.com/gmail/v1/users/${userId}/messages/batchModify`,
+        {
+            headers: {
+                Authorization: `Bearer ${access_token}`,
+                Accept: 'application/json'
+            },
+            body: {
+                "ids": messageIdList,
+                "addLabelIds": ["UNREAD"],
+                "removeLabelIds": []
+            }
+        }
+    )
 }
