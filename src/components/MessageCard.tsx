@@ -42,8 +42,11 @@ function MessageCardTemplate(props: { children: any; message: Message; }) {
 
     const setMessageAsRead = (messageId: string) => {
         msgidstomarkread.push(messageId);
+        setExpanded(false);
     };
-    const setMessageAsUnRead = (_messageId: string) => {};
+    const setMessageAsUnRead = (_messageId: string) => {
+
+    };
 
     useEffect(() => {
         setExpanded(props.message.labelIds.includes('UNREAD'));
