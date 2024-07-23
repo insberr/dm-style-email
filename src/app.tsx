@@ -1,3 +1,5 @@
+import { Menu as MenuIcon } from '@mui/icons-material';
+import {SwipeableDrawer, IconButton } from '@mui/material';
 import {useGoogleLogin} from '@react-oauth/google';
 import axios from 'axios';
 import {useMemo, useState} from "preact/compat";
@@ -194,29 +196,51 @@ export function App() {
         await addMessages(messagesData).catch(error => console.log(error));
     }
 
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [smallScreenEmailViewOpen, setSmallScreenEmailViewOpen] = useState(false);
+
     return (
         <ThemeProvider theme={darkTheme}>
             <CssBaseline/>
             <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
                 <AppBar position="static">
                     <Toolbar>
+                        <IconButton edge="start" color="inherit" aria-label="menu" onClick={() => setDrawerOpen(true)}>
+                            <MenuIcon />
+                        </IconButton>
                         <Typography variant="h6" sx={{ flexGrow: 1 }}>
-                            Direct Message Style Email
+                            DM Email
                         </Typography>
-                        {syncing && <Typography>
-                            Syncing Emails...
-                        </Typography>}
-                        <Button onClick={() => {
-                            if (token) markReadYesYesYes(token);
-                        }}>Save</Button>
-                        <Button variant="contained" onClick={() => syncEmails()}>
-                            Sync next 200
-                        </Button>
-                        <Button variant="contained" onClick={() => googleLogin()}>
-                            Sign in with Google
-                        </Button>
+                        {syncing &&
+                            <Typography>
+                                Syncing Emails...
+                            </Typography>
+                        }
                     </Toolbar>
                 </AppBar>
+                <SwipeableDrawer
+                    anchor="left"
+                    open={drawerOpen}
+                    onClose={() => setDrawerOpen(!drawerOpen)}
+                >
+                    <Box role="presentation" onClick={() => setDrawerOpen(!drawerOpen)} onKeyDown={() => setDrawerOpen(!drawerOpen)}>
+                        <List>
+                            <ListItemButton
+                                onClick={() => {
+                                    if (token) markReadYesYesYes(token);
+                                }}
+                            >
+                                Save
+                            </ListItemButton>
+                            <ListItemButton variant="contained" onClick={() => syncEmails()}>
+                                Sync next 200
+                            </ListItemButton>
+                            <ListItemButton variant="contained" onClick={() => googleLogin()}>
+                                Sign in with Google
+                            </ListItemButton>
+                        </List>
+                    </Box>
+                </SwipeableDrawer>
                 <Grid container sx={{ flexGrow: 1, overflow: 'hidden' }}>
                     <Grid item
                           xs={12}
@@ -235,6 +259,7 @@ export function App() {
                                             selected={selectedSenderIndex === index}
                                             onClick={() => {
                                                 setSelectedSenderIndex(index);
+                                                setSmallScreenEmailViewOpen(true);
                                                 // setMessagesToShow(sender.messageIds);
                                             }}>
 
@@ -254,9 +279,37 @@ export function App() {
                               padding: 2,
                               paddingBottom: '100px'
                           }}>
-                        <MessageList messageIds={
-                            senders[selectedSenderIndex]?.messageIds || null
-                        } />
+                        <Box sx={{
+                            display: {
+                                sm: 'block',
+                                md: 'none',
+                            }
+                        }}>
+                            <SwipeableDrawer
+                                sx={{ display: 'block' }}
+                                anchor="right"
+                                open={smallScreenEmailViewOpen}
+                                onClose={() => setSmallScreenEmailViewOpen(!smallScreenEmailViewOpen)}
+                                disableDiscovery={false}
+                                disableSwipeToOpen={false}
+
+                            >
+                                <Button onClick={() => setSmallScreenEmailViewOpen(false)}>{'<'} Back</Button>
+                                <MessageList messageIds={
+                                    senders[selectedSenderIndex]?.messageIds || null
+                                } />
+                            </SwipeableDrawer>
+                        </Box>
+                        <Box sx={{
+                            display: {
+                                sm: 'none',
+                                md: 'block'
+                            }
+                        }}>
+                            <MessageList messageIds={
+                                senders[selectedSenderIndex]?.messageIds || null
+                            } />
+                        </Box>
                     </Grid>
                 </Grid>
             </Box>
