@@ -3,7 +3,7 @@ import {SwipeableDrawer, IconButton } from '@mui/material';
 import {useGoogleLogin} from '@react-oauth/google';
 import axios from 'axios';
 import {useMemo, useState} from "preact/compat";
-import {Badge, Box, Button, Grid} from "@mui/material";
+import {Badge, Box, Button, Grid, Divider} from "@mui/material";
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
@@ -40,6 +40,8 @@ export function App() {
     const [nextBatch, setNextBatch] = useState<string | null>(localStorage.getItem('nextPage'));
     const [token, setToken] = useState<string | null>(localStorage.getItem('access_token'));
     const [senders, setSenders] = useState<SenderSummary[]>([]);
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [smallScreenEmailViewOpen, setSmallScreenEmailViewOpen] = useState(false);
 
     // FIXME: Probably store this information in the database so we dont have to compute it here
     useMemo(() => {
@@ -124,19 +126,26 @@ export function App() {
         scope: 'https://mail.google.com'
     });
 
-    async function syncEmails() {
+    async function syncEmails(loop_nextBatch?: string | null | undefined, all?: boolean) {
         if (!token) {
             console.error("No token");
             return;
         }
 
-        if (!nextBatch) {
-            deleteAllMessages().catch(error => console.log(error));
-            setSenders([]);
+        if (loop_nextBatch === null) {
+            console.error("No loop next batch, this should be an error");
+            return;
         }
 
+        // if (!nextBatch) {
+        //     deleteAllMessages().catch(error => console.log(error));
+        //     setSenders([]);
+        // }
+
         const messages: { id: string; threadId: string; }[] = [];
-        const response = await listEmailMessages(token, 'me', nextBatch);
+        const response = await listEmailMessages(token, 'me', loop_nextBatch === undefined ? null : loop_nextBatch, {
+            allMail: all || false,
+        });
         messages.push(...response.data.messages);
 
         // FIXME: Make it so if the message id is already in the database that we dont re-request for it
@@ -174,10 +183,10 @@ export function App() {
             })).catch(error => console.log(error));
         }
 
-        setSyncing(false);
-
         // console.log(messagesData);
         // setMessages(messagesData);
+
+        await addMessages(messagesData).catch(error => console.log(error));
 
         if (response.data.nextPageToken === undefined || response.data.nextPageToken === null) {
             setNextBatch(null);
@@ -185,19 +194,17 @@ export function App() {
         } else {
             setNextBatch(response.data.nextPageToken);
             localStorage.setItem('nextPage', response.data.nextPageToken);
+            await syncEmails(response.data.nextPageToken);
         }
+
+        setSyncing(false);
 
         // try {
         //     localStorage.setItem('messagesData', JSON.stringify(messagesData));
         // } catch (error) {
         //     console.error(error);
         // }
-
-        await addMessages(messagesData).catch(error => console.log(error));
     }
-
-    const [drawerOpen, setDrawerOpen] = useState(false);
-    const [smallScreenEmailViewOpen, setSmallScreenEmailViewOpen] = useState(false);
 
     return (
         <ThemeProvider theme={darkTheme}>
@@ -221,22 +228,36 @@ export function App() {
                 <SwipeableDrawer
                     anchor="left"
                     open={drawerOpen}
+                    onOpen={() => setDrawerOpen(true)}
                     onClose={() => setDrawerOpen(!drawerOpen)}
                 >
                     <Box role="presentation" onClick={() => setDrawerOpen(!drawerOpen)} onKeyDown={() => setDrawerOpen(!drawerOpen)}>
                         <List>
+                            <ListItemButton variant="contained" onClick={() => googleLogin()}>
+                                Sign in with Google
+                            </ListItemButton>
+                            <ListItemButton variant="contained" onClick={async () => syncEmails()}>
+                                Sync unread emails
+                            </ListItemButton>
+                            <ListItemButton
+                                variant="contained"
+                                onClick={async () => syncEmails(undefined, true)}
+                            >
+                                Sync all emails (Caution)
+                            </ListItemButton>
+                            <ListItemButton variant="contained" onClick={async () => {
+                                deleteAllMessages().then(() => {
+                                    setSenders([]);
+                                });
+                            }}>
+                                Clear local storage
+                            </ListItemButton>
                             <ListItemButton
                                 onClick={() => {
                                     if (token) markReadYesYesYes(token);
                                 }}
                             >
                                 Save
-                            </ListItemButton>
-                            <ListItemButton variant="contained" onClick={() => syncEmails()}>
-                                Sync next 200
-                            </ListItemButton>
-                            <ListItemButton variant="contained" onClick={() => googleLogin()}>
-                                Sign in with Google
                             </ListItemButton>
                         </List>
                     </Box>
@@ -254,7 +275,7 @@ export function App() {
                             <List>
                                 {senders
                                     .map((sender, index: number) => {
-                                        return <ListItemButton
+                                        return <><ListItemButton
                                             key={`sender-button-${index}`}
                                             selected={selectedSenderIndex === index}
                                             onClick={() => {
@@ -263,9 +284,16 @@ export function App() {
                                                 // setMessagesToShow(sender.messageIds);
                                             }}>
 
-                                                <ListItemText primary={sender.names.join(', ')} secondary={sender.sender} />
+                                                <ListItemText
+                                                    primary={sender.names.join(',\n').split('\n').map(sender => {
+                                                        return <div>{sender}<br/></div>
+                                                    })}
+                                                    secondary={sender.sender.replace(/[<>]/g, '')}
+                                                />
                                             <Badge badgeContent={sender.unreadCount } color="primary" />
                                         </ListItemButton>
+                                            <Divider variant="middle"  />
+                                        </>
                                     })
                                 }
                             </List>
@@ -282,13 +310,19 @@ export function App() {
                         <Box sx={{
                             display: {
                                 sm: 'block',
-                                md: 'none',
+                                md: 'none'
                             }
                         }}>
                             <SwipeableDrawer
-                                sx={{ display: 'block' }}
+                                sx={{
+                                    display: {
+                                        sm: 'block',
+                                        md: 'none'
+                                    },
+                                }}
                                 anchor="right"
                                 open={smallScreenEmailViewOpen}
+                                onOpen={() => setSmallScreenEmailViewOpen(true)}
                                 onClose={() => setSmallScreenEmailViewOpen(!smallScreenEmailViewOpen)}
                                 disableDiscovery={false}
                                 disableSwipeToOpen={false}

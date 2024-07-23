@@ -1,0 +1,11 @@
+{
+  "name": "Direct Message Style Email",
+  "short_name": "DM Email",
+  "description": "Email client for faster mass email reading",
+  "start_url": "",
+  "scope": "",
+  "display": "standalone",
+  "background_color": "#222222",
+  "theme_color": "#222222",
+  "icons": []
+}

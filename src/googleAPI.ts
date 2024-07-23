@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const unreadOnly = true;
+const unreadOnlyDefault = true;
 
 
 export interface MessageIdList {
@@ -53,11 +53,21 @@ export interface Message {
 
 
 
-export async function listEmailMessages(access_token: string, userId: string, nextBatch?: string | null): Promise<{ data: MessageIdList }> {
+export async function listEmailMessages(
+    access_token: string,
+    userId: string,
+    nextBatch?: string | null,
+    options?: {
+        allMail?: boolean
+        maxResults?: number
+    }
+): Promise<{ data: MessageIdList }> {
     // GET https://gmail.googleapis.com/gmail/v1/users/{userId}/messages
+    const maxResults = options?.maxResults || 200;
+    const unreadOnly = (options?.allMail || !unreadOnlyDefault) ? '' : '&q=is%3Aunread';
 
     return await axios.get(
-        `https://gmail.googleapis.com/gmail/v1/users/${userId}/messages?maxResults=200${unreadOnly ? '&q=is%3Aunread' : ''}${nextBatch ? '&pageToken=' + nextBatch : ''}`,
+        `https://gmail.googleapis.com/gmail/v1/users/${userId}/messages?maxResults=${maxResults}${unreadOnly}${nextBatch ? '&pageToken=' + nextBatch : ''}`,
         {
             headers: {
                 Authorization: `Bearer ${access_token}`,

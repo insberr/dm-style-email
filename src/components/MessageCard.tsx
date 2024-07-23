@@ -85,6 +85,13 @@ function MessageCardTemplate(props: { children: any; message: Message; }) {
                 {props.children}
             </CardContent>
         </Collapse>
+        <Divider/>
+        <CardActions disableSpacing>
+            {props.message.labelIds.includes('UNREAD') ?
+                <Chip label='Unread' onClick={() => setMessageAsRead(props.message.id)}/> :
+                <Chip variant="outlined" label='Read' onClick={() => setMessageAsUnRead(props.message.id)}/>
+            }
+        </CardActions>
     </Card>;
 }
 

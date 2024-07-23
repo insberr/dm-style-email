@@ -1,6 +1,6 @@
 import {Message} from "./googleAPI.ts";
 
-const dbName = 'my-database';
+const dbName = 'dm-style-email';
 const storeName = 'messages';
 let dbPromise: Promise<IDBDatabase> | null = null;
 
