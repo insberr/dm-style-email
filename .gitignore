@@ -33,4 +33,3 @@ google-api-key
 /.yarn/cache/
 /src/messages.json
 /src/grr.json
-/.yarn/releases/
