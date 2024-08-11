@@ -16,6 +16,7 @@ import Toolbar from '@mui/material/Toolbar';
 import MessageList from "./components/MessageList.tsx";
 import {addMessages, deleteAllMessages, getAllMessages} from './indexedDBManager.ts'
 import {markReadYesYesYes} from "./components/MessageCard.tsx";
+import SenderActionMenu from "./components/SenderActionMenu.tsx";
 
 export interface SenderSummary {
     fullSenderString: string;
@@ -275,7 +276,33 @@ export function App() {
                             <List>
                                 {senders
                                     .map((sender, index: number) => {
+                                        // Fixme: This whole sender menu is slow and inefficient, but I am far too annoyed to deal with it right now
+                                        const [senderContextMenu, setSenderContextMenu] = useState<{
+                                            mouseX: number;
+                                            mouseY: number;
+                                        } | null>(null);
+
+                                        const handleSenderContextMenu = (event: MouseEvent) => {
+                                            event.preventDefault();
+                                            setSenderContextMenu(
+                                                senderContextMenu === null
+                                                    ? {
+                                                        mouseX: event.clientX + 2,
+                                                        mouseY: event.clientY - 6,
+                                                    }
+                                                    : // repeated contextmenu when it is already open closes it with Chrome 84 on Ubuntu
+                                                      // Other native context menus might behave different.
+                                                      // With this behavior we prevent contextmenu from the backdrop to re-locale existing context menus.
+                                                    null,
+                                            );
+                                        };
+
+                                        const handleSenderContextMenuClose = () => {
+                                            setSenderContextMenu(null);
+                                        };
+                                        
                                         return <><ListItemButton
+                                            onContextMenu={handleSenderContextMenu}
                                             key={`sender-button-${index}`}
                                             selected={selectedSenderIndex === index}
                                             onClick={() => {
@@ -293,6 +320,12 @@ export function App() {
                                             <Badge badgeContent={sender.unreadCount } color="primary" />
                                         </ListItemButton>
                                             <Divider variant="middle"  />
+                                            <SenderActionMenu
+                                                key={"sender-menu-" + index}
+                                                open={senderContextMenu}
+                                                handleClose={handleSenderContextMenuClose}
+                                                senderMessagesIds={sender.messageIds}
+                                            />
                                         </>
                                     })
                                 }

@@ -127,3 +127,23 @@ export async function markMessagesAsUnRead(access_token: string, userId: string,
         }
     )
 }
+
+export async function deleteMessages(access_token: string, userId: string, messageIdList: string[]) {
+    await axios.post(
+        `https://gmail.googleapis.com/gmail/v1/users/${userId}/messages/batchDelete`,
+        {
+            headers: {
+                Authorization: `Bearer ${access_token}`,
+                Accept: 'application/json',
+                "Content-Type": "application/json"
+            },
+            body: {
+                "ids": messageIdList,
+            }
+        }
+    )
+}
+
+export async function deleteMessage(access_token: string, userId: string, messageId: string): Promise<void> {
+    await deleteMessages(access_token, userId, [messageId]);
+}

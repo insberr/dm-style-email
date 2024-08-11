@@ -22,6 +22,7 @@ export default function AutoResizeIframe(props: { src: string }) {
 
                 iframeDocument.open();
                 iframeDocument.write(decodedHtml);
+                // iframeDocument.getElementsByTagName("footer")[0].style.display = "none";
                 iframeDocument.close();
 
                 // Render Raw
@@ -39,6 +40,15 @@ export default function AutoResizeIframe(props: { src: string }) {
                     // height = Math.min(height, offset);
 
                     iframe.style.height = (height + 20).toString() + "px";
+                    
+                    // Fixme: This is temporary to fic the dumb scrollbar
+                    setTimeout(() => {
+                        let height = iframeDocument.body.scrollHeight;
+                        // const offset = iframeDocument.body.offsetHeight;
+                        // height = Math.min(height, offset);
+
+                        iframe.style.height = (height + 20).toString() + "px";
+                    }, 2000);
                 }, 500);
             }
         }

@@ -1,4 +1,4 @@
-import {markMessagesAsRead, Message} from "../googleAPI.ts";
+import {markMessagesAsRead, Message, MessagePart} from "../googleAPI.ts";
 import {useState} from "react";
 import {Card, CardActions, CardContent, Collapse} from "@mui/material";
 import Chip from "@mui/material/Chip";
@@ -121,11 +121,37 @@ export default function MessageCard(props: { key: string | number; message: Mess
             <AutoResizeIframe src={messageHTML} />
         </MessageCardTemplate>
     }
-
-    const messagePartsHTML = payload.parts.filter(
+    
+    let messagePartsHTML: MessagePart[] = [];
+    let messagePartsAttachments: MessagePart[] = [];
+    
+    messagePartsHTML = payload.parts.filter(
         (part: any) => part.mimeType === "text/html"
     );
 
+    if (messagePartsHTML.length === 0) {
+        console.log(payload.parts)
+        const altParts = payload.parts.filter(
+            (part: any) => part.mimeType === "multipart/alternative"
+        );
+
+        messagePartsHTML = altParts.flatMap((part: any) => {
+            return part.parts.filter(
+                (partInside: any) => partInside.mimeType === "text/html"
+            );
+        });
+        
+        messagePartsAttachments = payload.parts.filter(
+            (part: any) => part.mimeType !== "multipart/alternative"
+        );
+        
+        console.log("Alt attach, ", messagePartsAttachments);
+        
+        // return <MessageCardTemplate message={props.message}>
+        //     Unable to render content: {JSON.stringify(payload, null, 2)}
+        // </MessageCardTemplate>
+    }
+    
     if (messagePartsHTML.length === 0) {
         return <MessageCardTemplate message={props.message}>
             Unable to render content: {JSON.stringify(payload, null, 2)}
@@ -135,6 +161,15 @@ export default function MessageCard(props: { key: string | number; message: Mess
     const messageHTML = fixGoogleBase64Encoding(messagePartsHTML[0].body.data);
 
     return <MessageCardTemplate message={props.message}>
+        { messagePartsAttachments.length > 0 ?
+            <div>Attachments Included: {
+                messagePartsAttachments.map(attachmentPart => 
+                    <div>{attachmentPart.filename}</div>
+                )
+            }
+            </div>
+            : null
+        }
         <AutoResizeIframe src={messageHTML}/>
     </MessageCardTemplate>
 }
