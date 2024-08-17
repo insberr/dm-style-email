@@ -128,7 +128,7 @@ export async function markMessagesAsUnRead(access_token: string, userId: string,
     )
 }
 
-export async function deleteMessages(access_token: string, userId: string, messageIdList: string[]) {
+export async function permanentlyDeleteMessages(access_token: string, userId: string, messageIdList: string[]) {
     await axios.post(
         `https://gmail.googleapis.com/gmail/v1/users/${userId}/messages/batchDelete`,
         {
@@ -144,6 +144,33 @@ export async function deleteMessages(access_token: string, userId: string, messa
     )
 }
 
-export async function deleteMessage(access_token: string, userId: string, messageId: string): Promise<void> {
-    await deleteMessages(access_token, userId, [messageId]);
+export async function permanentlyDeleteMessage(access_token: string, userId: string, messageId: string): Promise<void> {
+    // await deleteMessages(access_token, userId, [messageId]);
+    await axios.delete(
+        `https://gmail.googleapis.com/gmail/v1/users/${userId}/messages/${messageId}`,
+        {
+            headers: {
+                Authorization: `Bearer ${access_token}`,
+                Accept: 'application/json'
+            }
+        }
+    )
+}
+
+export async function trashMessages(access_token: string, userId: string, messageIdList: string[]) {
+    await Promise.all(
+        messageIdList.map(async (id) => await trashMessage(access_token, userId, id))
+    )
+}
+
+export async function trashMessage(access_token: string, userId: string, messageId: string): Promise<void> {
+    await axios.post(
+        `https://gmail.googleapis.com/gmail/v1/users/${userId}/messages/${messageId}/trash`,
+        {
+            headers: {
+                Authorization: `Bearer ${access_token}`,
+                Accept: 'application/json'
+            }
+        }
+    )
 }

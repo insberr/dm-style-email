@@ -52,7 +52,7 @@ function MessageCardTemplate(props: { children: any; message: Message; }) {
         setExpanded(props.message.labelIds.includes('UNREAD'));
     }, [props.message]);
 
-    return <Card mt={3}>
+    return <Card sx={{ mt: 3 }}>
         <CardContent>
             <Typography variant='h6'>
                 {props.message.payload.headers

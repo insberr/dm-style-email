@@ -49,6 +49,24 @@ export async function addMessages(messages: Message[]) {
     });
 }
 
+export async function addMessage(message: Message) {
+    const db = await openDatabase();
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    
+    store.put(message);
+
+    return new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => {
+            resolve();
+        };
+
+        transaction.onerror = () => {
+            reject(transaction.error);
+        };
+    });
+}
+
 export async function deleteAllMessages() {
     const db = await openDatabase();
     const transaction = db.transaction(storeName, 'readwrite');
@@ -67,12 +85,14 @@ export async function deleteAllMessages() {
     });
 }
 
-export async function deleteMessages(messageIdList: string[]) {
+export async function removeMessages(messageIdList: string[]) {
     const db = await openDatabase();
     const transaction = db.transaction(storeName, 'readwrite');
     const store = transaction.objectStore(storeName);
-
-    store.delete(messageIdList);
+    
+    for (const messageID of messageIdList) {
+        store.delete(messageID);
+    }
 
     return new Promise<void>((resolve, reject) => {
         transaction.oncomplete = () => {
@@ -83,6 +103,10 @@ export async function deleteMessages(messageIdList: string[]) {
             reject(transaction.error);
         };
     });
+}
+
+export async function removeMessage(messageId: string) {
+    return await removeMessages([messageId]);
 }
 
 // Get all messages from the database

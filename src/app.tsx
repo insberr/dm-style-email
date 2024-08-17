@@ -1,5 +1,5 @@
 import { Menu as MenuIcon } from '@mui/icons-material';
-import {SwipeableDrawer, IconButton } from '@mui/material';
+import {SwipeableDrawer, IconButton, TextField} from '@mui/material';
 import {useGoogleLogin} from '@react-oauth/google';
 import axios from 'axios';
 import {useMemo, useState} from "preact/compat";
@@ -14,7 +14,7 @@ import Typography from '@mui/material/Typography';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import MessageList from "./components/MessageList.tsx";
-import {addMessages, deleteAllMessages, getAllMessages} from './indexedDBManager.ts'
+import {addMessages, deleteAllMessages, getAllMessages, getMessageById} from './indexedDBManager.ts'
 import {markReadYesYesYes} from "./components/MessageCard.tsx";
 import SenderActionMenu from "./components/SenderActionMenu.tsx";
 
@@ -43,6 +43,7 @@ export function App() {
     const [senders, setSenders] = useState<SenderSummary[]>([]);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [smallScreenEmailViewOpen, setSmallScreenEmailViewOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState<string | null>(null);
 
     // FIXME: Probably store this information in the database so we dont have to compute it here
     useMemo(() => {
@@ -165,7 +166,12 @@ export function App() {
 
         for (let chunkedMessage of chunkedMessages) {
             await Promise.all(chunkedMessage.map(async message => {
-                console.debug("Getting message ", message.id);
+                if (await getMessageById(message.id) !== undefined) {
+                    console.debug("Message with id already exists, skipping:  ", message.id);
+                    return;
+                }
+                
+                console.info("Getting message ", message.id);
 
                 const msg = await getEmailMessage(token, 'me', message.id);
 
@@ -234,19 +240,18 @@ export function App() {
                 >
                     <Box role="presentation" onClick={() => setDrawerOpen(!drawerOpen)} onKeyDown={() => setDrawerOpen(!drawerOpen)}>
                         <List>
-                            <ListItemButton variant="contained" onClick={() => googleLogin()}>
+                            <ListItemButton onClick={() => googleLogin()}>
                                 Sign in with Google
                             </ListItemButton>
-                            <ListItemButton variant="contained" onClick={async () => syncEmails()}>
+                            <ListItemButton onClick={async () => syncEmails()}>
                                 Sync unread emails
                             </ListItemButton>
                             <ListItemButton
-                                variant="contained"
                                 onClick={async () => syncEmails(undefined, true)}
                             >
                                 Sync all emails (Caution)
                             </ListItemButton>
-                            <ListItemButton variant="contained" onClick={async () => {
+                            <ListItemButton onClick={async () => {
                                 deleteAllMessages().then(() => {
                                     setSenders([]);
                                 });
@@ -273,8 +278,19 @@ export function App() {
                               height: '100vh',
                               paddingBottom: '100px'
                           }}>
+                              <TextField id="standard-basic" label="Search" variant="standard" value={searchQuery} onChange={(event) => {
+                                  setSearchQuery(event.currentTarget.value);
+                              }} />
                             <List>
                                 {senders
+                                    .sort((a, b) => {
+                                        if (searchQuery === null) return 0; 
+                                        
+                                        const aMatch = a.sender.match(searchQuery)?.length || 0;
+                                        const bMatch = b.sender.match(searchQuery)?.length || 0;
+                                        
+                                        return bMatch - aMatch;
+                                    })
                                     .map((sender, index: number) => {
                                         // Fixme: This whole sender menu is slow and inefficient, but I am far too annoyed to deal with it right now
                                         const [senderContextMenu, setSenderContextMenu] = useState<{
